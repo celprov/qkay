@@ -2,6 +2,62 @@ import copy
 import glob
 import os
 import random
+import re
+
+# Define the desired order
+MODALITY_ORDER = ["_T1w", "task-qct.*_bold", "task-bht.*_bold", "task_rest.*_bold", "_T2w"]
+
+def define_order(file):
+    """
+    Extracts the session number from the given file name and returns a tuple containing the subject ID, modality priority,
+    session type priority, and session number.
+
+    Parameters:
+    -----------
+    file (str): The file name from which to extract the session number.
+
+    Returns:
+    --------
+    tuple: A tuple containing the subject ID, modality priority, session type priority, and session number.
+
+    The function first extracts the subject ID from the file name using a regular expression. It then extracts the modality
+    from the file name and determines its priority based on its position in the MODALITY_ORDER list. If the modality is not
+    found in the MODALITY_ORDER list, its priority is set to the length of the list.
+
+    The function then checks for the presence of "ses-excl", "ses-pilot", or "ses-" in the file name using regular expressions.
+    If any of these session types are found, the corresponding session type priority and session number are extracted.
+
+    If none of the session types are found in the file name, the function returns a default value of (subject_id, modality_priority, 4, 0),
+    where 4 is the priority for files without a session number.
+
+    Note: This function assumes that the file name follows a specific naming convention and that the regular expressions used
+    will correctly extract the required information.
+    """
+    subject_id = re.search(r'sub-(\w+)_', file).group(1)
+
+    # Extract modality and get its priority based on its position in MODALITY_ORDER
+    modality_priority = len(MODALITY_ORDER)
+    for i, pattern in enumerate(MODALITY_ORDER):
+        if re.search(pattern, file):
+            modality_priority = i
+            break
+
+    run_match = re.search(r'run-(\w+)_', file)
+    run_id = int(run_match.group(1)) if run_match else 0
+
+    excl_match = re.search(r'ses-excl(\d+)_', file)
+    if excl_match:
+        return (subject_id, modality_priority, 1, int(excl_match.group(1)), run_id)  # Priority 1 for "ses-excl"
+    
+    pilot_match = re.search(r'ses-pilot(\d+)_', file)
+    if pilot_match:
+        return (subject_id, modality_priority, 2, int(pilot_match.group(1)), run_id)  # Priority 2 for "ses-pilot"
+    
+    session_match = re.search(r'ses-(\d+)_', file)
+    if session_match:
+        return (subject_id, modality_priority, 3, int(session_match.group(1)), run_id)  # Priority 3 for "ses-"
+
+    return (subject_id, modality_priority, 4, 0, run_id)  # Default value for files without a session number
 
 
 def list_individual_reports(path_reports, two_folders=False):
@@ -32,6 +88,10 @@ def list_individual_reports(path_reports, two_folders=False):
             os.path.basename(filename)
             for filename in glob.glob(path_reports + "/**/sub-*.html", recursive=True)
         ]
+    
+    #Re-order the list of files according to the desired order
+    list_of_files.sort(key=define_order)
+
     return list_of_files
 
 

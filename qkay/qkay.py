@@ -908,7 +908,7 @@ def assign_dataset():
 
         names_files = list_individual_reports(dataset_path, two_folders=two_datasets)
         app.logger.debug(
-            "%s reports found at %s", len(names_files), dataset_path
+            "%s reports found at %s. The naming of the report looks as follows %s.", len(names_files), dataset_path, names_files[0]
         )
         new_names = names_files
         if rate_all:
